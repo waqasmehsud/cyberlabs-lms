@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Shield, Mail, Lock, User, Eye, EyeOff, ArrowRight, Check } from "lucide-react";
+import { Shield, Mail, Lock, User, Eye, EyeOff, ArrowRight, Check, AlertCircle, Loader2 } from "lucide-react";
 
 const perks = [
     "Access 240+ security courses",
@@ -12,14 +13,44 @@ const perks = [
 ];
 
 export default function RegisterPage() {
+    const router = useRouter();
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPass, setShowPass] = useState(false);
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
 
     const strength = password.length === 0 ? 0 : password.length < 6 ? 1 : password.length < 10 ? 2 : 3;
     const strengthColors = ["", "#ef4444", "#f97316", "#22c55e"];
     const strengthLabels = ["", "Weak", "Medium", "Strong"];
+
+    async function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        setError("");
+        setLoading(true);
+
+        try {
+            const res = await fetch("/api/auth/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, email, password }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                setError(data.error ?? "Registration failed");
+                return;
+            }
+
+            router.push("/dashboard");
+            router.refresh();
+        } catch {
+            setError("Network error. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    }
 
     return (
         <div
@@ -70,12 +101,20 @@ export default function RegisterPage() {
                         Create your account
                     </h2>
 
-                    <form onSubmit={(e) => e.preventDefault()} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    {/* Error */}
+                    {error && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", marginBottom: 16, fontSize: 13, color: "#f87171" }}>
+                            <AlertCircle size={14} />
+                            {error}
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                         <div>
                             <label style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)", marginBottom: 6, display: "block" }}>Full Name</label>
                             <div style={{ position: "relative" }}>
                                 <User size={15} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} />
-                                <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" className="input-cyber" style={{ paddingLeft: 38 }} />
+                                <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" className="input-cyber" style={{ paddingLeft: 38 }} required />
                             </div>
                         </div>
 
@@ -83,7 +122,7 @@ export default function RegisterPage() {
                             <label style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)", marginBottom: 6, display: "block" }}>Email Address</label>
                             <div style={{ position: "relative" }}>
                                 <Mail size={15} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} />
-                                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="input-cyber" style={{ paddingLeft: 38 }} />
+                                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="input-cyber" style={{ paddingLeft: 38 }} required />
                             </div>
                         </div>
 
@@ -91,7 +130,7 @@ export default function RegisterPage() {
                             <label style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)", marginBottom: 6, display: "block" }}>Password</label>
                             <div style={{ position: "relative" }}>
                                 <Lock size={15} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} />
-                                <input type={showPass ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min. 8 characters" className="input-cyber" style={{ paddingLeft: 38, paddingRight: 40 }} />
+                                <input type={showPass ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min. 6 characters" className="input-cyber" style={{ paddingLeft: 38, paddingRight: 40 }} required />
                                 <button type="button" onClick={() => setShowPass(!showPass)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 0, display: "flex" }}>
                                     {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                                 </button>
@@ -106,8 +145,15 @@ export default function RegisterPage() {
                             )}
                         </div>
 
-                        <button type="submit" className="btn-cyber btn-primary" style={{ marginTop: 8, width: "100%", padding: "13px" }}>
-                            Create Account <ArrowRight size={16} />
+                        <button
+                            type="submit"
+                            className="btn-cyber btn-primary"
+                            style={{ marginTop: 8, width: "100%", padding: "13px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                            disabled={loading}
+                        >
+                            {loading ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : null}
+                            {loading ? "Creating account…" : "Create Account"}
+                            {!loading && <ArrowRight size={16} />}
                         </button>
                     </form>
 

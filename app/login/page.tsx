@@ -1,13 +1,44 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Shield, Mail, Lock, Eye, EyeOff, ArrowRight, Github } from "lucide-react";
+import { Shield, Mail, Lock, Eye, EyeOff, ArrowRight, Github, AlertCircle, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
+    const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPass, setShowPass] = useState(false);
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    async function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        setError("");
+        setLoading(true);
+
+        try {
+            const res = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                setError(data.error ?? "Login failed");
+                return;
+            }
+
+            router.push("/dashboard");
+            router.refresh();
+        } catch {
+            setError("Network error. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    }
 
     return (
         <div
@@ -58,8 +89,16 @@ export default function LoginPage() {
                         <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
                     </div>
 
+                    {/* Error */}
+                    {error && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", marginBottom: 16, fontSize: 13, color: "#f87171" }}>
+                            <AlertCircle size={14} />
+                            {error}
+                        </div>
+                    )}
+
                     {/* Form */}
-                    <form onSubmit={(e) => e.preventDefault()} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                         <div>
                             <label style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)", marginBottom: 6, display: "block" }}>Email Address</label>
                             <div style={{ position: "relative" }}>
@@ -71,6 +110,7 @@ export default function LoginPage() {
                                     placeholder="you@example.com"
                                     className="input-cyber"
                                     style={{ paddingLeft: 38 }}
+                                    required
                                 />
                             </div>
                         </div>
@@ -89,19 +129,28 @@ export default function LoginPage() {
                                     placeholder="••••••••"
                                     className="input-cyber"
                                     style={{ paddingLeft: 38, paddingRight: 40 }}
+                                    required
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPass(!showPass)}
-                                    style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 0, display: "flex" }}
-                                >
+                                <button type="button" onClick={() => setShowPass(!showPass)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 0, display: "flex" }}>
                                     {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                                 </button>
                             </div>
                         </div>
 
-                        <button type="submit" className="btn-cyber btn-primary" style={{ marginTop: 8, width: "100%", padding: "13px" }}>
-                            Sign In <ArrowRight size={16} />
+                        {/* Demo credentials hint */}
+                        <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(0,240,255,0.04)", border: "1px solid rgba(0,240,255,0.12)", fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                            Demo: student@cyberlabs.io / student123
+                        </div>
+
+                        <button
+                            type="submit"
+                            className="btn-cyber btn-primary"
+                            style={{ marginTop: 8, width: "100%", padding: "13px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                            disabled={loading}
+                        >
+                            {loading ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : null}
+                            {loading ? "Signing in…" : "Sign In"}
+                            {!loading && <ArrowRight size={16} />}
                         </button>
                     </form>
 

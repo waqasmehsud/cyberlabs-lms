@@ -1,37 +1,92 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import ProgressBar from "@/components/ProgressBar";
-import { Clock, Users, Star, BookOpen, ChevronDown, Award, ArrowLeft, Play, Check } from "lucide-react";
+import { Clock, Users, Star, BookOpen, ChevronDown, ArrowLeft, Play, Check, Loader2 } from "lucide-react";
 
-// Mock data — in real app this would come from params & DB
-const course = {
-    slug: "web-app-hacking",
-    title: "Web Application Hacking",
-    description: "Master the OWASP Top 10, SQL injection, Cross-Site Scripting (XSS), CSRF, authentication bypasses, and advanced web exploitation techniques using real-world vulnerable applications. You'll practice inside an isolated lab environment and build a complete methodology for web penetration testing.",
-    category: "Web Security",
-    level: "Intermediate",
-    duration: "24h",
-    students: 3200,
-    rating: 4.9,
-    reviews: 842,
-    instructor: { name: "Dr. Alex Mercer", title: "Senior Penetration Tester", avatar: "AM" },
-    skills: ["OWASP Top 10", "Burp Suite", "SQL Injection", "XSS", "CSRF", "IDOR", "API Security", "Reporting"],
-    modules: [
-        { title: "Module 1: Recon & Enumeration", lessons: ["Web Application Architecture", "Passive Recon with OSINT", "Active Scanning with Gobuster", "Lab: Target Enumeration"], completed: [true, true, true, true] },
-        { title: "Module 2: Injection Attacks", lessons: ["SQL Injection Fundamentals", "Blind SQLi Techniques", "SQLMap Automation", "NoSQL Injection", "Lab: Flag the Database"], completed: [true, true, false, false, false] },
-        { title: "Module 3: Cross-Site Attacks", lessons: ["Reflected & Stored XSS", "DOM-Based XSS", "CSRF Exploitation", "Lab: Cookie Theft"], completed: [false, false, false, false] },
-        { title: "Module 4: Auth & Session Attacks", lessons: ["JWT Vulnerabilities", "Session Fixation", "Broken Auth Patterns", "Lab: Account Takeover"], completed: [false, false, false, false] },
-        { title: "Module 5: Advanced Exploitation", lessons: ["SSRF & XXE Attacks", "IDOR Vulnerabilities", "API Security Testing", "Final Capstone Lab"], completed: [false, false, false, false] },
-    ],
+interface Lesson {
+    id: string;
+    title: string;
+    order: number;
+    duration: string;
+    completed: boolean;
+}
+
+interface CourseData {
+    id: string;
+    slug: string;
+    title: string;
+    description: string;
+    category: string;
+    level: string;
+    duration: string;
+    students: number;
+    rating: number;
+    isEnrolled: boolean;
+    progress: number;
+    lessons: Lesson[];
+}
+
+const categoryEmoji: Record<string, string> = {
+    "Web Security": "🌐", Pentesting: "⚔️", Network: "🔗", Malware: "🦠",
+    Forensics: "🔍", Cryptography: "🔑", CTF: "🏴",
 };
 
 export default function CourseDetailPage() {
-    const totalLessons = course.modules.reduce((a, m) => a + m.lessons.length, 0);
-    const completedLessons = course.modules.reduce((a, m) => a + m.completed.filter(Boolean).length, 0);
-    const progress = Math.round((completedLessons / totalLessons) * 100);
+    const { slug } = useParams<{ slug: string }>();
+    const [course, setCourse] = useState<CourseData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [enrolling, setEnrolling] = useState(false);
+
+    useEffect(() => {
+        fetch(`/api/courses/${slug}`)
+            .then((r) => r.json())
+            .then((d) => { if (d.course) setCourse(d.course); })
+            .catch(console.error)
+            .finally(() => setLoading(false));
+    }, [slug]);
+
+    async function handleEnroll() {
+        setEnrolling(true);
+        try {
+            const res = await fetch(`/api/courses/${slug}/enroll`, { method: "POST" });
+            if (res.ok) {
+                setCourse((prev) => prev ? { ...prev, isEnrolled: true } : prev);
+            } else if (res.status === 401) {
+                window.location.href = "/login";
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setEnrolling(false);
+        }
+    }
+
+    if (loading) {
+        return (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+                <Loader2 size={32} color="var(--cyan)" style={{ animation: "spin 1s linear infinite" }} />
+            </div>
+        );
+    }
+
+    if (!course) {
+        return (
+            <div style={{ textAlign: "center", padding: "80px 24px" }}>
+                <div style={{ fontSize: 40, marginBottom: 16 }}>⚠️</div>
+                <p style={{ color: "var(--text-secondary)" }}>Course not found.</p>
+                <Link href="/courses" className="btn-cyber btn-outline" style={{ marginTop: 20, padding: "10px 24px" }}>Back to Courses</Link>
+            </div>
+        );
+    }
+
+    const totalLessons = course.lessons.length;
+    const completedLessons = course.lessons.filter((l) => l.completed).length;
 
     return (
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 28px" }}>
-            {/* Back */}
             <Link href="/courses" style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-muted)", textDecoration: "none", marginBottom: 24 }}>
                 <ArrowLeft size={14} /> Back to Courses
             </Link>
@@ -39,7 +94,6 @@ export default function CourseDetailPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 32, alignItems: "start" }}>
                 {/* Left — course info */}
                 <div>
-                    {/* Hero */}
                     <div style={{ marginBottom: 32 }}>
                         <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
                             <span className="badge badge-cyan">{course.category}</span>
@@ -51,11 +105,9 @@ export default function CourseDetailPage() {
                         <p style={{ color: "var(--text-secondary)", fontSize: 15, lineHeight: 1.7, marginBottom: 24 }}>
                             {course.description}
                         </p>
-
-                        {/* Meta */}
                         <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
                             {[
-                                { icon: Star, value: `${course.rating} (${course.reviews} reviews)`, color: "#fbbf24" },
+                                { icon: Star, value: `${course.rating} rating`, color: "#fbbf24" },
                                 { icon: Users, value: `${course.students.toLocaleString()} students`, color: "var(--text-muted)" },
                                 { icon: Clock, value: course.duration, color: "var(--text-muted)" },
                                 { icon: BookOpen, value: `${totalLessons} lessons`, color: "var(--text-muted)" },
@@ -68,56 +120,25 @@ export default function CourseDetailPage() {
                         </div>
                     </div>
 
-                    {/* Instructor */}
-                    <div className="glass-card" style={{ padding: 20, marginBottom: 24, display: "flex", gap: 16, alignItems: "center" }}>
-                        <div style={{ width: 52, height: 52, borderRadius: "50%", background: "linear-gradient(135deg, #7c3aed, #00f0ff)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 18, color: "white", flexShrink: 0 }}>
-                            {course.instructor.avatar}
-                        </div>
-                        <div>
-                            <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginBottom: 2 }}>YOUR INSTRUCTOR</div>
-                            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{course.instructor.name}</div>
-                            <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{course.instructor.title}</div>
-                        </div>
-                    </div>
-
-                    {/* Skills */}
-                    <div style={{ marginBottom: 32 }}>
-                        <h2 style={{ fontSize: 18, fontFamily: "var(--font-heading)", fontWeight: 700, color: "var(--text-primary)", marginBottom: 16 }}>
-                            Skills You'll Learn
-                        </h2>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                            {course.skills.map((s) => (
-                                <span key={s} className="badge badge-cyan">{s}</span>
-                            ))}
-                        </div>
-                    </div>
-
                     {/* Curriculum */}
                     <div>
                         <h2 style={{ fontSize: 18, fontFamily: "var(--font-heading)", fontWeight: 700, color: "var(--text-primary)", marginBottom: 16 }}>
                             Course Curriculum
                         </h2>
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                            {course.modules.map((mod, mi) => (
-                                <details key={mi} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
-                                    <summary style={{ padding: "16px 20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", color: "var(--text-primary)", fontWeight: 600, fontSize: 14, listStyle: "none" }}>
-                                        <span>{mod.title}</span>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                            <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{mod.lessons.length} lessons</span>
-                                            <ChevronDown size={16} color="var(--text-muted)" />
-                                        </div>
-                                    </summary>
-                                    <div style={{ borderTop: "1px solid var(--border)" }}>
-                                        {mod.lessons.map((lesson, li) => (
-                                            <div key={li} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: li < mod.lessons.length - 1 ? "1px solid var(--border)" : "none" }}>
-                                                <div style={{ width: 22, height: 22, borderRadius: "50%", background: mod.completed[li] ? "rgba(34,197,94,0.1)" : "rgba(255,255,255,0.04)", border: `1px solid ${mod.completed[li] ? "rgba(34,197,94,0.3)" : "var(--border)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                                    {mod.completed[li] ? <Check size={12} color="var(--green)" /> : <Play size={10} color="var(--text-muted)" />}
-                                                </div>
-                                                <span style={{ fontSize: 13, color: mod.completed[li] ? "var(--text-secondary)" : "var(--text-primary)", flex: 1 }}>{lesson}</span>
-                                            </div>
-                                        ))}
+                            {course.lessons.map((lesson, i) => (
+                                <div
+                                    key={lesson.id}
+                                    style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10 }}
+                                >
+                                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: lesson.completed ? "rgba(34,197,94,0.1)" : "rgba(255,255,255,0.04)", border: `1px solid ${lesson.completed ? "rgba(34,197,94,0.3)" : "var(--border)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                        {lesson.completed ? <Check size={13} color="var(--green)" /> : <Play size={11} color="var(--text-muted)" />}
                                     </div>
-                                </details>
+                                    <span style={{ fontSize: 13, color: lesson.completed ? "var(--text-secondary)" : "var(--text-primary)", flex: 1 }}>
+                                        {lesson.order}. {lesson.title}
+                                    </span>
+                                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)", flexShrink: 0 }}>{lesson.duration}</span>
+                                </div>
                             ))}
                         </div>
                     </div>
@@ -126,28 +147,35 @@ export default function CourseDetailPage() {
                 {/* Right — sticky enrollment card */}
                 <div style={{ position: "sticky", top: "calc(var(--topbar-height) + 20px)" }}>
                     <div className="glass-card" style={{ padding: 28 }}>
-                        {/* Course icon */}
                         <div style={{ width: "100%", height: 160, borderRadius: 12, background: "linear-gradient(135deg, rgba(124,58,237,0.15) 0%, rgba(0,240,255,0.1) 100%)", border: "1px solid rgba(0,240,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24, fontSize: 64 }}>
-                            🌐
+                            {categoryEmoji[course.category] ?? "📘"}
                         </div>
 
-                        {progress > 0 ? (
+                        {course.isEnrolled ? (
                             <>
-                                <div style={{ marginBottom: 16 }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13, color: "var(--text-secondary)" }}>
-                                        <span>{completedLessons}/{totalLessons} lessons</span>
-                                        <span style={{ color: "var(--cyan)", fontFamily: "var(--font-mono)" }}>{progress}%</span>
+                                {course.progress > 0 && (
+                                    <div style={{ marginBottom: 16 }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13, color: "var(--text-secondary)" }}>
+                                            <span>{completedLessons}/{totalLessons} lessons</span>
+                                            <span style={{ color: "var(--cyan)", fontFamily: "var(--font-mono)" }}>{course.progress}%</span>
+                                        </div>
+                                        <ProgressBar value={course.progress} color="cyan" height={6} />
                                     </div>
-                                    <ProgressBar value={progress} color="cyan" height={6} />
-                                </div>
-                                <Link href={`/courses/${course.slug}/learn`} className="btn-cyber btn-primary" style={{ display: "flex", width: "100%", padding: "13px" }}>
-                                    <Play size={16} /> Continue Learning
+                                )}
+                                <Link href={`/courses/${course.slug}/learn`} className="btn-cyber btn-primary" style={{ display: "flex", width: "100%", padding: "13px", justifyContent: "center", alignItems: "center", gap: 8 }}>
+                                    <Play size={16} /> {course.progress > 0 ? "Continue Learning" : "Start Course"}
                                 </Link>
                             </>
                         ) : (
-                            <Link href={`/courses/${course.slug}/learn`} className="btn-cyber btn-primary" style={{ display: "flex", width: "100%", padding: "14px" }}>
-                                Enroll Now — Free
-                            </Link>
+                            <button
+                                onClick={handleEnroll}
+                                className="btn-cyber btn-primary"
+                                style={{ width: "100%", padding: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                                disabled={enrolling}
+                            >
+                                {enrolling ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : null}
+                                {enrolling ? "Enrolling…" : "Enroll Now — Free"}
+                            </button>
                         )}
 
                         <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
