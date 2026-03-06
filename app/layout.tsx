@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Analytics } from "@vercel/analytics/next";
 import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
 import "./globals.css";
@@ -51,6 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             }
           }
         `}</style>
+        <Analytics />
       </body>
     </html>
   );
